@@ -17,11 +17,11 @@ def get_students():
     Route to fetch all students from the database
     return: Array of student objects
     """
-    # TODO: replace with your implementation. This is a mock response
-    return jsonify([
-        {'course': 'COMP1531', 'id': 1, 'mark': 85, 'name': 'Alice Zhang'},
-        {'course': 'COMP1531', 'id': 2, 'mark': 72, 'name': 'Bob Smith'}
-    ]), 200
+    try:
+        students = db.get_all_students()
+        return jsonify(students), 200
+    except Exception:
+        return jsonify({"error": "Failed to fetch students"}), 404
 
 
 @app.route("/students", methods=["POST"])
@@ -33,11 +33,27 @@ def create_student():
     param mark: The mark the student received (from request body)
     return: The created student if successful
     """
+    try:
+        student_data = request.json
+        name = student_data.get("name")
+        course = student_data.get("course")
+        mark = student_data.get("mark", 0)
 
-    # Getting the request body - replace with your implementation
-    student_data = request.json
+        normalized_name = name.strip().lower()
+        normalized_course = course.strip().lower()
 
-    pass
+        existing_students = db.get_all_students()
+        for student in existing_students:
+            if (
+                student["name"].strip().lower() == normalized_name
+                and student["course"].strip().lower() == normalized_course
+            ):
+                return jsonify({"error": "Student already exists in this course"}), 404
+
+        student = db.insert_student(name, course, mark)
+        return jsonify(student), 200
+    except Exception:
+        return jsonify({"error": "Failed to create student"}), 404
 
 
 @app.route("/students/<int:student_id>", methods=["PUT"])
@@ -49,7 +65,41 @@ def update_student(student_id):
     param mark: The mark the student received (from request body)
     return: The updated student if successful
     """
-    pass  # replace with your implementation
+    try:
+        student_data = request.json
+        name = student_data.get("name")
+        course = student_data.get("course")
+        mark = student_data.get("mark")
+
+        existing_student = db.get_student_by_id(student_id)
+        if existing_student is None:
+            return jsonify({"error": "Student ID does not exist"}), 404
+
+        candidate_name = name if name is not None and name != "" else existing_student["name"]
+        candidate_course = course if course is not None and course != "" else existing_student["course"]
+
+        normalized_name = candidate_name.strip().lower()
+        normalized_course = candidate_course.strip().lower()
+
+        existing_students = db.get_all_students()
+        for student in existing_students:
+            if student["id"] == student_id:
+                continue
+
+            if (
+                student["name"].strip().lower() == normalized_name
+                and student["course"].strip().lower() == normalized_course
+            ):
+                return jsonify({"error": "Student already exists in this course"}), 404
+
+        student = db.update_student(student_id, name, course, mark)
+
+        if student is None:
+            return jsonify({"error": "Student ID does not exist"}), 404
+
+        return jsonify(student), 200
+    except Exception:
+        return jsonify({"error": "Failed to update student"}), 404
 
 
 @app.route("/students/<int:student_id>", methods=["DELETE"])
@@ -58,7 +108,16 @@ def delete_student(student_id):
     Route to delete student by id
     return: The deleted student
     """
-    pass  # replace with your implementation
+    try:
+        student = db.delete_student(student_id)
+
+        if student is None:
+            return jsonify({"error": "Student ID does not exist"}), 404
+
+        return jsonify(student), 200
+    except Exception:
+        return jsonify({"error": "Failed to delete student"}), 404
+
 
 
 @app.route("/stats")
@@ -67,13 +126,38 @@ def get_stats():
     Route to show the stats of all student marks 
     return: An object with the stats (count, average, min, max)
     """
-    pass  # replace with your implementation
+    try:
+        students = db.get_all_students()
+        marks = [student["mark"] for student in students]
+
+        if not marks:
+            stats = {
+                "count": 0,
+                "average": 0,
+                "min": 0,
+                "max": 0,
+            }
+        else:
+            stats = {
+                "count": len(marks),
+                "average": sum(marks) / len(marks),
+                "min": min(marks),
+                "max": max(marks),
+            }
+
+        return jsonify(stats), 200
+    except Exception:
+        return jsonify({"error": "Failed to fetch stats"}), 404
+
 
 
 @app.route("/")
 def health():
     """Health check."""
-    return {"status": "ok"}
+    try:
+        return jsonify({"status": "ok"}), 200
+    except Exception:
+        return jsonify({"error": "Health check failed"}), 404
 
 
 if __name__ == "__main__":
