@@ -39,9 +39,15 @@ def create_student():
         course = student_data.get("course")
         mark = student_data.get("mark", 0)
 
+        normalized_name = name.strip().lower()
+        normalized_course = course.strip().lower()
+
         existing_students = db.get_all_students()
         for student in existing_students:
-            if student["name"] == name and student["course"] == course:
+            if (
+                student["name"].strip().lower() == normalized_name
+                and student["course"].strip().lower() == normalized_course
+            ):
                 return jsonify({"error": "Student already exists in this course"}), 404
 
         student = db.insert_student(name, course, mark)
@@ -64,6 +70,27 @@ def update_student(student_id):
         name = student_data.get("name")
         course = student_data.get("course")
         mark = student_data.get("mark")
+
+        existing_student = db.get_student_by_id(student_id)
+        if existing_student is None:
+            return jsonify({"error": "Student ID does not exist"}), 404
+
+        candidate_name = name if name is not None and name != "" else existing_student["name"]
+        candidate_course = course if course is not None and course != "" else existing_student["course"]
+
+        normalized_name = candidate_name.strip().lower()
+        normalized_course = candidate_course.strip().lower()
+
+        existing_students = db.get_all_students()
+        for student in existing_students:
+            if student["id"] == student_id:
+                continue
+
+            if (
+                student["name"].strip().lower() == normalized_name
+                and student["course"].strip().lower() == normalized_course
+            ):
+                return jsonify({"error": "Student already exists in this course"}), 404
 
         student = db.update_student(student_id, name, course, mark)
 
